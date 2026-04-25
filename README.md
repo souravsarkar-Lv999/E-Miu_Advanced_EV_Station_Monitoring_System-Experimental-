@@ -42,14 +42,6 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Open `http://localhost:8501`.
-
-If the branch includes `run_experiment.ps1`, you can also use:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\run_experiment.ps1
-```
-
 ## Demo Flow
 
 1. Open `Home` to review booth or station status.
