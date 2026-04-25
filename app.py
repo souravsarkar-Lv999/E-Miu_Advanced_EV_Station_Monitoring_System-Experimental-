@@ -175,8 +175,25 @@ def get_local_ip() -> str:
             return "localhost"
 
 
+def get_current_server_port(default: int = 8501) -> int:
+    host_header = (
+        st.context.headers.get("X-Forwarded-Host")
+        or st.context.headers.get("Host")
+        or ""
+    )
+    host_value = host_header.split(",")[0].strip()
+    if ":" not in host_value:
+        return default
+    _, port_text = host_value.rsplit(":", 1)
+    try:
+        return int(port_text)
+    except ValueError:
+        return default
+
+
 def build_booth_url(booth_code: str) -> str:
     host = get_local_ip()
+    port = get_current_server_port()
     query = urlencode(
         {
             "page": "driver",
@@ -184,7 +201,7 @@ def build_booth_url(booth_code: str) -> str:
             "mobile": "1",
         }
     )
-    return f"http://{host}:8501/?{query}"
+    return f"http://{host}:{port}/?{query}"
 
 
 def make_qr_image(url: str):
