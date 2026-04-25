@@ -13,20 +13,16 @@ E-Miu is a Streamlit-based EV charging operations demo that turns geofencing ide
 - Reports with CSV export
 - Demo seed data for instant testing
 
-## Upcoming In `experiment`
+## To be updated in future 
 
 - Faster QR-first phone testing workflow
 - Better local-network launch flow for laptop + phone demos
 - More compact admin QR operations
 - Expanded mobile check-in refinements
-
-## Upcoming In `experiment-1`
-
 - E-Miu branded interface polish
 - Nearby station map experience
 - Demo payment-before-finish session flow
-- Live-refresh monitoring panels
-- Miu mascot assistant preview
+- Miu ai assistant preview
 
 ## Tech Stack
 
