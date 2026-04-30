@@ -48,14 +48,14 @@ Miu works in preview mode without any API key. To test real LLM replies locally,
 
 1. Copy `.streamlit/secrets.example.toml` to `.streamlit/secrets.toml`.
 2. Paste your own key into `.streamlit/secrets.toml`.
-3. Keep the default free model, or replace it with another OpenRouter model ID.
+3. Paste the OpenRouter model ID you want to use.
 
 ```toml
 OPENROUTER_API_KEY = "paste-your-own-openrouter-key-here"
-OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+OPENROUTER_MODEL = "paste-your-own-openrouter-model-here"
 ```
 
-`secrets.toml` is ignored by Git, so your real API key should stay local. Do not commit real API keys, screenshots containing keys, or terminal output that prints keys. If a key is exposed, revoke it in OpenRouter and create a new one.
+If either value is missing or still a placeholder, Miu falls back to preview mode. `secrets.toml` is ignored by Git, so your real API key should stay local. Do not commit real API keys, screenshots containing keys, or terminal output that prints keys. If a key is exposed, revoke it in OpenRouter and create a new one.
 
 For deployed apps, add the same values through your hosting provider's secret or environment-variable settings instead of putting them in source code.
 

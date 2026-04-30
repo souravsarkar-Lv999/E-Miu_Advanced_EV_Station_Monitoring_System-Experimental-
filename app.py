@@ -55,12 +55,17 @@ st.set_page_config(
 MIU_IMAGE_PATH = Path("C:/Users/Sourav/Downloads/miu.png")
 REPO_URL = "https://github.com/souravsarkar-Lv999/E-Miu_Advanced_EV_Station_Monitoring_System-Experimental-"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 OPENROUTER_KEY_PLACEHOLDERS = {
     "",
     "PASTE_YOUR_REAL_OPENROUTER_KEY_HERE",
     "paste-your-own-openrouter-key-here",
     "your-real-openrouter-key",
+}
+OPENROUTER_MODEL_PLACEHOLDERS = {
+    "",
+    "PASTE_YOUR_OPENROUTER_MODEL_HERE",
+    "paste-your-own-openrouter-model-here",
+    "your-openrouter-model",
 }
 SELECTED_STATION_STATE_KEY = "selected_station_id"
 HOME_STATION_SELECTOR_KEY = "home_station_selector"
@@ -327,10 +332,19 @@ def get_app_secret(name: str, default: str = "") -> str:
 
 def get_miu_llm_config() -> tuple[str, str]:
     api_key = get_app_secret("OPENROUTER_API_KEY")
-    if api_key in OPENROUTER_KEY_PLACEHOLDERS:
+    if api_key in OPENROUTER_KEY_PLACEHOLDERS or not api_key.startswith("sk-"):
         api_key = ""
-    model = get_app_secret("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
-    return api_key, model or DEFAULT_OPENROUTER_MODEL
+    model = get_app_secret("OPENROUTER_MODEL")
+    if model in OPENROUTER_MODEL_PLACEHOLDERS:
+        model = ""
+    return api_key, model
+
+
+def get_miu_model_display_name(model: str) -> str:
+    normalized_model = model.lower()
+    if "nvidia" in normalized_model and "nemotron-3" in normalized_model:
+        return "NVIDIA: Nemotron 3"
+    return "Custom LLM"
 
 
 def generate_preview_miu_reply(user_message: str) -> str:
@@ -398,6 +412,8 @@ def generate_openrouter_miu_reply(
         with request.urlopen(api_request, timeout=30) as response:
             response_payload = json.loads(response.read().decode("utf-8"))
     except error.HTTPError as exc:
+        if exc.code in {401, 403}:
+            return generate_preview_miu_reply(user_message)
         details = exc.read().decode("utf-8", errors="replace")
         return f"Miu could not reach the configured LLM right now. OpenRouter returned {exc.code}: {details[:240]}"
     except Exception as exc:
@@ -411,7 +427,7 @@ def generate_openrouter_miu_reply(
 
 def generate_miu_reply(user_message: str, chat_history: list[dict[str, str]]) -> str:
     api_key, model = get_miu_llm_config()
-    if api_key:
+    if api_key and model:
         return generate_openrouter_miu_reply(user_message, chat_history, api_key, model)
     return generate_preview_miu_reply(user_message)
 
@@ -435,8 +451,8 @@ def render_miu_chat() -> None:
     with st.container(border=True):
         api_key, model = get_miu_llm_config()
         st.markdown("**Miu chat**")
-        if api_key:
-            st.caption(f"AI mode via OpenRouter model `{model}`.")
+        if api_key and model:
+            st.caption(f"AI mode via {get_miu_model_display_name(model)}.")
         else:
             st.caption("Preview mode. Add a local OpenRouter key to enable AI replies.")
         for message in st.session_state["miu_messages"][-6:]:
