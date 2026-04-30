@@ -3,9 +3,11 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import socket
 from datetime import datetime
 from pathlib import Path
+from urllib import error, request
 from urllib.parse import urlencode
 
 import qrcode
@@ -52,6 +54,8 @@ st.set_page_config(
 
 MIU_IMAGE_PATH = Path("C:/Users/Sourav/Downloads/miu.png")
 REPO_URL = "https://github.com/souravsarkar-Lv999/E-Miu_Advanced_EV_Station_Monitoring_System-Experimental-"
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 SELECTED_STATION_STATE_KEY = "selected_station_id"
 HOME_STATION_SELECTOR_KEY = "home_station_selector"
 MAP_STATION_SELECTOR_KEY = "map_station_selector"
@@ -305,7 +309,23 @@ def render_live_update_hint(label: str = "Live updates every 5 seconds on monito
     st.caption(label)
 
 
-def generate_miu_reply(user_message: str) -> str:
+def get_app_secret(name: str, default: str = "") -> str:
+    try:
+        value = st.secrets.get(name, None)
+    except Exception:
+        value = None
+    if value is None:
+        value = os.getenv(name, default)
+    return str(value).strip()
+
+
+def get_miu_llm_config() -> tuple[str, str]:
+    api_key = get_app_secret("OPENROUTER_API_KEY")
+    model = get_app_secret("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
+    return api_key, model or DEFAULT_OPENROUTER_MODEL
+
+
+def generate_preview_miu_reply(user_message: str) -> str:
     message = user_message.lower().strip()
     if not message:
         return "Share a short question and I will help with stations, queues, charging, maps, or demo payments."
@@ -330,6 +350,64 @@ def generate_miu_reply(user_message: str) -> str:
     )
 
 
+def generate_openrouter_miu_reply(
+    user_message: str,
+    chat_history: list[dict[str, str]],
+    api_key: str,
+    model: str,
+) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are Miu, a concise EV charging assistant inside the E-Miu demo app. "
+                "Help users with station discovery, queue flow, booth check-in, charging sessions, "
+                "demo payments, and app navigation. Keep answers practical, friendly, and short."
+            ),
+        }
+    ]
+    messages.extend(chat_history[-8:])
+    messages.append({"role": "user", "content": user_message})
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": 0.35,
+        "max_tokens": 320,
+    }
+    encoded_payload = json.dumps(payload).encode("utf-8")
+    api_request = request.Request(
+        OPENROUTER_API_URL,
+        data=encoded_payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": REPO_URL,
+            "X-Title": "E-Miu Advanced EV Station Monitoring System",
+        },
+        method="POST",
+    )
+    try:
+        with request.urlopen(api_request, timeout=30) as response:
+            response_payload = json.loads(response.read().decode("utf-8"))
+    except error.HTTPError as exc:
+        details = exc.read().decode("utf-8", errors="replace")
+        return f"Miu could not reach the configured LLM right now. OpenRouter returned {exc.code}: {details[:240]}"
+    except Exception as exc:
+        return f"Miu could not reach the configured LLM right now: {exc}"
+
+    try:
+        return response_payload["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError, TypeError):
+        return "Miu received an unexpected LLM response. Check the OpenRouter model name and API key."
+
+
+def generate_miu_reply(user_message: str, chat_history: list[dict[str, str]]) -> str:
+    api_key, model = get_miu_llm_config()
+    if api_key:
+        return generate_openrouter_miu_reply(user_message, chat_history, api_key, model)
+    return generate_preview_miu_reply(user_message)
+
+
 def render_miu_preview() -> None:
     st.markdown(
         """
@@ -347,17 +425,23 @@ def render_miu_preview() -> None:
 
 def render_miu_chat() -> None:
     with st.container(border=True):
-        st.markdown("**Miu chat preview**")
-        st.caption("Lightweight assistant simulation for short EV app questions.")
+        api_key, model = get_miu_llm_config()
+        st.markdown("**Miu chat**")
+        if api_key:
+            st.caption(f"AI mode via OpenRouter model `{model}`.")
+        else:
+            st.caption("Preview mode. Add a local OpenRouter key to enable AI replies.")
         for message in st.session_state["miu_messages"][-6:]:
             with st.chat_message(message["role"]):
                 st.write(message["content"])
 
         user_prompt = st.chat_input("Ask Miu about maps, queue, charging, or payment")
         if user_prompt:
+            chat_history = st.session_state["miu_messages"]
+            assistant_reply = generate_miu_reply(user_prompt, chat_history)
             st.session_state["miu_messages"].append({"role": "user", "content": user_prompt})
             st.session_state["miu_messages"].append(
-                {"role": "assistant", "content": generate_miu_reply(user_prompt)}
+                {"role": "assistant", "content": assistant_reply}
             )
             st.rerun()
 

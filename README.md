@@ -42,6 +42,23 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## Optional Miu AI Assistant
+
+Miu works in preview mode without any API key. To test real LLM replies locally, create your own OpenRouter API key and add it to a private local Streamlit secrets file.
+
+1. Copy `.streamlit/secrets.example.toml` to `.streamlit/secrets.toml`.
+2. Paste your own key into `.streamlit/secrets.toml`.
+3. Keep the default free model, or replace it with another OpenRouter model ID.
+
+```toml
+OPENROUTER_API_KEY = "paste-your-own-openrouter-key-here"
+OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+```
+
+`secrets.toml` is ignored by Git, so your real API key should stay local. Do not commit real API keys, screenshots containing keys, or terminal output that prints keys. If a key is exposed, revoke it in OpenRouter and create a new one.
+
+For deployed apps, add the same values through your hosting provider's secret or environment-variable settings instead of putting them in source code.
+
 ## Demo Flow
 
 1. Open `Home` to review booth or station status.
