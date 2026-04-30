@@ -52,7 +52,11 @@ Miu works in preview mode without any API key. To test real LLM replies locally,
 
 ```toml
 OPENROUTER_API_KEY = "paste-your-own-openrouter-key-here"
+<<<<<<< HEAD
 OPENROUTER_MODEL = "paste-your-own-openrouter-model-here"
+=======
+OPENROUTER_MODEL = "paste-your-own-llm-model-here"
+>>>>>>> 080c207c5cfa4682ee32a90c83454680ddeea31f
 ```
 
 If either value is missing or still a placeholder, Miu falls back to preview mode. `secrets.toml` is ignored by Git, so your real API key should stay local. Do not commit real API keys, screenshots containing keys, or terminal output that prints keys. If a key is exposed, revoke it in OpenRouter and create a new one.
