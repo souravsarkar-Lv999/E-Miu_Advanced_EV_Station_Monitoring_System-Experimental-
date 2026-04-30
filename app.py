@@ -52,6 +52,9 @@ st.set_page_config(
 
 MIU_IMAGE_PATH = Path("C:/Users/Sourav/Downloads/miu.png")
 REPO_URL = "https://github.com/souravsarkar-Lv999/E-Miu_Advanced_EV_Station_Monitoring_System-Experimental-"
+SELECTED_STATION_STATE_KEY = "selected_station_id"
+HOME_STATION_SELECTOR_KEY = "home_station_selector"
+MAP_STATION_SELECTOR_KEY = "map_station_selector"
 
 
 def bootstrap() -> None:
@@ -255,6 +258,7 @@ def init_demo_state() -> None:
     st.session_state.setdefault("payment_records", {})
     st.session_state.setdefault("pending_payment_session_id", None)
     st.session_state.setdefault("finish_after_payment_session_id", None)
+    st.session_state.setdefault(SELECTED_STATION_STATE_KEY, None)
     st.session_state.setdefault(
         "miu_messages",
         [
@@ -580,6 +584,7 @@ def render_home_live_panel(selected_station_id: int | None) -> None:
             st.info("No stations yet. Create one from Admin Dashboard.")
             return
 
+        selected_station_id = selected_station_id or st.session_state.get(SELECTED_STATION_STATE_KEY)
         station_options = {station.name: station for station in stations}
         station_names = list(station_options.keys())
         initial_index = 0
@@ -588,13 +593,18 @@ def render_home_live_panel(selected_station_id: int | None) -> None:
                 (index for index, station in enumerate(stations) if station.id == selected_station_id),
                 0,
             )
+        initial_station_name = station_names[initial_index]
+        current_widget_value = st.session_state.get(HOME_STATION_SELECTOR_KEY)
+        if current_widget_value not in station_options:
+            st.session_state[HOME_STATION_SELECTOR_KEY] = initial_station_name
         selected_station_name = st.selectbox(
             "Station overview",
             station_names,
             index=initial_index,
-            key="home_station_selector",
+            key=HOME_STATION_SELECTOR_KEY,
         )
         selected_station = station_options[selected_station_name]
+        st.session_state[SELECTED_STATION_STATE_KEY] = selected_station.id
 
         st.subheader(f"{selected_station.name} Booth Status")
         st.caption(selected_station.address)
@@ -1025,7 +1035,11 @@ def render_map_live_panel(
             )
         )
 
-        selected_station_id = selected_station_id or int(station_cards[0]["station_id"])
+        selected_station_id = (
+            selected_station_id
+            or st.session_state.get(SELECTED_STATION_STATE_KEY)
+            or int(station_cards[0]["station_id"])
+        )
         build_station_map(
             station_cards,
             selected_station_id=selected_station_id,
@@ -1057,9 +1071,12 @@ def render_map_live_panel(
             "Nearest stations",
             list(station_options.keys()),
             index=selected_index,
-            key="map_station_selector",
+            key=MAP_STATION_SELECTOR_KEY,
         )
         selected_station_snapshot = station_options[selected_label]
+        st.session_state[SELECTED_STATION_STATE_KEY] = int(
+            selected_station_snapshot["station_id"]
+        )
         if int(selected_station_snapshot["station_id"]) != selected_station_id:
             st.query_params.update(page="map", station_id=str(selected_station_snapshot["station_id"]))
             st.rerun()
