@@ -56,6 +56,12 @@ MIU_IMAGE_PATH = Path("C:/Users/Sourav/Downloads/miu.png")
 REPO_URL = "https://github.com/souravsarkar-Lv999/E-Miu_Advanced_EV_Station_Monitoring_System-Experimental-"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_OPENROUTER_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+OPENROUTER_KEY_PLACEHOLDERS = {
+    "",
+    "PASTE_YOUR_REAL_OPENROUTER_KEY_HERE",
+    "paste-your-own-openrouter-key-here",
+    "your-real-openrouter-key",
+}
 SELECTED_STATION_STATE_KEY = "selected_station_id"
 HOME_STATION_SELECTOR_KEY = "home_station_selector"
 MAP_STATION_SELECTOR_KEY = "map_station_selector"
@@ -321,6 +327,8 @@ def get_app_secret(name: str, default: str = "") -> str:
 
 def get_miu_llm_config() -> tuple[str, str]:
     api_key = get_app_secret("OPENROUTER_API_KEY")
+    if api_key in OPENROUTER_KEY_PLACEHOLDERS:
+        api_key = ""
     model = get_app_secret("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL)
     return api_key, model or DEFAULT_OPENROUTER_MODEL
 
