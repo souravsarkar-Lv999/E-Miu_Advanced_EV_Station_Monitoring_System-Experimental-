@@ -15,7 +15,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image, ImageDraw, ImageOps
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from ev_monitoring.database import get_session, init_db
 from ev_monitoring.models import (
@@ -27,6 +27,7 @@ from ev_monitoring.models import (
     SessionStatus,
     Station,
 )
+from ev_monitoring.miu_knowledge import build_miu_static_context
 from ev_monitoring.seed import seed_demo_data
 from ev_monitoring.services import (
     assign_next_waiting_driver,
@@ -65,6 +66,7 @@ OPENROUTER_MODEL_PLACEHOLDERS = {
     "",
     "PASTE_YOUR_OPENROUTER_MODEL_HERE",
     "paste-your-own-openrouter-model-here",
+    "paste-your-own-llm-model-here",
     "your-openrouter-model",
 }
 SELECTED_STATION_STATE_KEY = "selected_station_id"
@@ -347,6 +349,44 @@ def get_miu_model_display_name(model: str) -> str:
     return "Custom LLM"
 
 
+def build_miu_live_context() -> str:
+    try:
+        with get_session() as db:
+            summary = dashboard_summary(db)
+            stations = db.scalars(
+                select(Station)
+                .options(selectinload(Station.booths))
+                .order_by(Station.name)
+            ).all()
+            lines = [
+                "Current live app snapshot:",
+                (
+                    f"- Totals: {summary['total_booths']} booths, "
+                    f"{summary['active_sessions']} active sessions, "
+                    f"{summary['waiting_drivers']} waiting drivers, "
+                    f"{summary['completed_sessions']} completed sessions."
+                ),
+            ]
+            for station in stations[:5]:
+                booths = list(station.booths)
+                free_count = sum(1 for booth in booths if booth.status == BoothStatus.FREE)
+                charging_count = sum(1 for booth in booths if booth.status == BoothStatus.CHARGING)
+                finished_count = sum(1 for booth in booths if booth.status == BoothStatus.FINISHED)
+                waiting_count = db.scalar(
+                    select(func.count(QueueEntry.id)).where(
+                        QueueEntry.station_id == station.id,
+                        QueueEntry.status == QueueStatus.WAITING,
+                    )
+                ) or 0
+                lines.append(
+                    f"- {station.name}: {free_count} free, {charging_count} charging, "
+                    f"{finished_count} finished, {waiting_count} waiting, {len(booths)} total booths."
+                )
+            return "\n".join(lines)
+    except Exception:
+        return "Current live app snapshot is unavailable."
+
+
 def generate_preview_miu_reply(user_message: str) -> str:
     message = user_message.lower().strip()
     if not message:
@@ -378,15 +418,21 @@ def generate_openrouter_miu_reply(
     api_key: str,
     model: str,
 ) -> str:
+    static_context = build_miu_static_context(user_message)
+    live_context = build_miu_live_context()
     messages = [
         {
             "role": "system",
             "content": (
                 "You are Miu, a concise EV charging assistant inside the E-Miu demo app. "
                 "Help users with station discovery, queue flow, booth check-in, charging sessions, "
-                "demo payments, and app navigation. Keep answers practical, friendly, and short."
+                "demo payments, and app navigation. Keep answers practical, friendly, and short. "
+                "Use the supplied E-Miu context as your source of truth for app behavior. "
+                "If the user asks something outside this app, answer briefly and guide them back to E-Miu."
             ),
-        }
+        },
+        {"role": "system", "content": static_context},
+        {"role": "system", "content": live_context},
     ]
     messages.extend(chat_history[-8:])
     messages.append({"role": "user", "content": user_message})
@@ -394,7 +440,7 @@ def generate_openrouter_miu_reply(
         "model": model,
         "messages": messages,
         "temperature": 0.35,
-        "max_tokens": 320,
+        "max_tokens": 420,
     }
     encoded_payload = json.dumps(payload).encode("utf-8")
     api_request = request.Request(
